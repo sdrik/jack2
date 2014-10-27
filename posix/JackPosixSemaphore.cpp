@@ -24,15 +24,27 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/time.h>
+#ifdef __linux__
+#include "gid.h"
+#endif
 
 namespace Jack
 {
+
+JackPosixSemaphore::JackPosixSemaphore() : JackSynchro(), fSemaphore(NULL)
+{
+    const char* promiscuous = getenv("JACK_PROMISCUOUS_SERVER");
+    fPromiscuous = (promiscuous != NULL);
+#ifdef __linux__
+    fPromiscuousGid = jack_group2gid(promiscuous);
+#endif
+}
 
 void JackPosixSemaphore::BuildName(const char* client_name, const char* server_name, char* res, int size)
 {
     char ext_client_name[SYNC_MAX_NAME_SIZE + 1];
     JackTools::RewriteName(client_name, ext_client_name);
-    if (getenv("JACK_PROMISCUOUS_SERVER")) {
+    if (fPromiscuous) {
         snprintf(res, size, "jack_sem.%s_%s", server_name, ext_client_name);
     } else {
         snprintf(res, size, "jack_sem.%d_%s_%s", JackTools::GetUID(), server_name, ext_client_name);
@@ -153,6 +165,24 @@ bool JackPosixSemaphore::Allocate(const char* name, const char* server_name, int
         jack_error("Allocate: can't check in named semaphore name = %s err = %s", fName, strerror(errno));
         return false;
     } else {
+#ifdef __linux__
+        if (fPromiscuous) {
+            char sempath[SYNC_MAX_NAME_SIZE+13];
+            snprintf(sempath, sizeof(sempath), "/dev/shm/sem.%s", fName);
+            mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+            if (fPromiscuousGid >= 0) {
+                if (chown(sempath, -1, fPromiscuousGid) < 0) {
+                    jack_log("Cannot chgrp semaphore name = %s err = %s, falling back to 0666 mode", sempath, strerror(errno));
+                } else {
+                    mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+                }
+            }
+            if (chmod(sempath, mode) < 0) {
+                jack_error("Cannot chmod semaphore name = %s err = %s", sempath, strerror(errno));
+                return false;
+            }
+        }
+#endif
         return true;
     }
 }
