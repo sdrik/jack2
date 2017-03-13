@@ -199,6 +199,7 @@ extern "C"
     int jack_initialize_shm_client (void);
     int jack_cleanup_shm (void);
 
+    void jack_shm_promiscuous_perms (int shm_fd, gid_t gid);
     int jack_shmalloc (const char *shm_name, jack_shmsize_t size,
                                   jack_shm_info_t* result);
     void jack_release_shm (jack_shm_info_t*);
