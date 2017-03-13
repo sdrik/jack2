@@ -17,7 +17,7 @@
 
 */
 
-#ifndef WIN32
+#ifndef __linux__
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -28,7 +28,7 @@
 int
 jack_group2gid(const char* group)
 {
-#ifdef WIN32
+#ifndef __linux__
     return -1;
 #else
     size_t buflen;
