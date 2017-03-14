@@ -829,6 +829,22 @@ jack_release_lib_shm (jack_shm_info_t* si)
 	}
 }
 
+void
+jack_shm_promiscuous_perms (int shm_fd, const char* name, gid_t gid)
+{
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+	if (gid >= 0) {
+		if (fchown(shm_fd, -1, gid) < 0) {
+			jack_log("Cannot chgrp shm segment %s (%s)", name, strerror (errno));
+		} else {
+			mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+		}
+	}
+	if (fchmod(shm_fd, mode) < 0) {
+		jack_log("Cannot chmod shm segment %s (%s)", name, strerror (errno));
+	}
+}
+
 /* allocate a POSIX shared memory segment */
 int
 jack_shmalloc (const char *shm_name, jack_shmsize_t size, jack_shm_info_t* si)
