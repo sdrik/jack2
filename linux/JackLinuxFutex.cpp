@@ -22,8 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "JackTools.h"
 #include "JackConstants.h"
 #include "JackError.h"
-#include "gid.h"
 #include "shm.h"
+#include "promiscuous.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -142,7 +142,7 @@ bool JackLinuxFutex::Allocate(const char* name, const char* server_name, int val
     ftruncate(fSharedMem, sizeof(FutexData));
 
     if (fPromiscuous)
-        jack_shm_promiscuous_perms(fSharedMem, fName, fPromiscuousGid);
+        jack_promiscuous_perms(fSharedMem, fName, fPromiscuousGid);
 
     if ((fFutex = (FutexData*)mmap(NULL, sizeof(FutexData), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, fSharedMem, 0)) == NULL) {
         jack_error("Allocate: can't check in named futex name = %s err = %s", fName, strerror(errno));

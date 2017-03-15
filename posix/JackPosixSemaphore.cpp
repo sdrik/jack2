@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include <stdio.h>
 #include <sys/time.h>
 #ifdef __linux__
-#include "gid.h"
+#include "promiscuous.h"
 #endif
 
 namespace Jack
@@ -163,18 +163,8 @@ bool JackPosixSemaphore::Allocate(const char* name, const char* server_name, int
         if (fPromiscuous) {
             char sempath[SYNC_MAX_NAME_SIZE+13];
             snprintf(sempath, sizeof(sempath), "/dev/shm/sem.%s", fName);
-            mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-            if (fPromiscuousGid >= 0) {
-                if (chown(sempath, -1, fPromiscuousGid) < 0) {
-                    jack_log("Cannot chgrp semaphore name = %s err = %s, falling back to 0666 mode", sempath, strerror(errno));
-                } else {
-                    mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-                }
-            }
-            if (chmod(sempath, mode) < 0) {
-                jack_error("Cannot chmod semaphore name = %s err = %s", sempath, strerror(errno));
+            if (jack_promiscuous_perms(-1, sempath, fPromiscuousGid) < 0)
                 return false;
-            }
         }
 #endif
         return true;

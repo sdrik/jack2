@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2014 Cédric Schieli
+ Copyright (C) 2014-2017 Cédric Schieli
 
  This program is free software; you can redistribute it and/or
  modify it under the terms of the GNU General Public License
@@ -17,18 +17,25 @@
 
 */
 
-#ifdef __linux__
+#ifndef WIN32
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <grp.h>
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
 #endif
+#include "JackError.h"
+#endif
+
 
 int
 jack_group2gid(const char* group)
 {
-#ifndef __linux__
+#ifdef WIN32
     return -1;
 #else
     size_t buflen;
@@ -44,7 +51,11 @@ jack_group2gid(const char* group)
     if (!*buf)
         return ret;
 
+#if defined(__APPLE__) && MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_4
+    buflen = 1024;
+#else
     buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+#endif
     buf = (char*)malloc(buflen);
 
     while (buf && ((ret = getgrnam_r(group, &grp, buf, buflen, &result)) == ERANGE)) {
@@ -59,3 +70,23 @@ jack_group2gid(const char* group)
     return grp.gr_gid;
 #endif
 }
+
+#ifndef WIN32
+int
+jack_promiscuous_perms(int fd, const char* path, gid_t gid)
+{
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+	if (gid >= 0) {
+		if (((fd < 0) ? chown(path, -1, gid) : fchown(fd, -1, gid)) < 0) {
+			jack_log("Cannot chgrp %s: %s. Falling back to permissive perms.", path, strerror(errno));
+		} else {
+			mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+		}
+	}
+	if (((fd < 0) ? chmod(path, mode) : fchmod(fd, mode)) < 0) {
+		jack_log("Cannot chmod %s: %s. Falling back to default (umask) perms.", path, strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+#endif

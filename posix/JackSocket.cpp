@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "JackConstants.h"
 #include "JackTools.h"
 #include "JackError.h"
-#include "gid.h"
+#include "promiscuous.h"
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -290,20 +290,8 @@ int JackServerSocket::Bind(const char* dir, const char* name, int which) // A re
         goto error;
     }
 
-    if (fPromiscuous) {
-        mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-        if (fPromiscuousGid >= 0) {
-            if (chown(fName, -1, fPromiscuousGid) < 0) {
-                jack_log("Cannot chgrp socket %s err = %s, falling back to 0666 mode", fName, strerror(errno));
-            } else {
-                mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-            }
-        }
-        if (chmod(fName, mode) < 0) {
-            jack_error("Cannot chmod socket %s err = %s", fName, strerror(errno));
-            goto error;
-        }
-    }
+    if (fPromiscuous && jack_promiscuous_perms(-1, fName, fPromiscuousGid) < 0)
+        goto error;
 
     return 0;
 
